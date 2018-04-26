@@ -191,6 +191,7 @@ func Decode(data string) (*Message, error) {
 	}
 
 	ack, rest, err := getAck(data)
+	rest = strings.TrimSuffix(rest, "\n")
 	msg.AckId = ack
 	if msg.Type == MessageTypeAckResponse {
 		if err != nil {
