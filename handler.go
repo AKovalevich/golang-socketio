@@ -2,9 +2,10 @@ package gosocketio
 
 import (
 	"encoding/json"
-	"github.com/graarh/golang-socketio/protocol"
 	"sync"
 	"reflect"
+
+	"github.com/AKovalevich/golang-socketio/protocol"
 )
 
 const (
@@ -130,7 +131,11 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			Type:  protocol.MessageTypeAckResponse,
 			AckId: msg.AckId,
 		}
-		send(ack, c, result[0].Interface())
+		msg, err := json.Marshal(result[0].Interface())
+		if err != nil {
+			return
+		}
+		send(ack, c, string(msg))
 
 	case protocol.MessageTypeAckResponse:
 		waiter, err := c.ack.getWaiter(msg.AckId)
