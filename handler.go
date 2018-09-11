@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"sync"
 	"reflect"
+	"strconv"
+	"strings"
+	"log"
 
 	"github.com/AKovalevich/golang-socketio/protocol"
 )
@@ -91,6 +94,7 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 	case protocol.MessageTypeEmit:
 		f, ok := m.findMethod(msg.Method)
 		if !ok {
+			log.Printf("Method %s not found", msg.Method)
 			return
 		}
 
@@ -100,8 +104,15 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 		}
 
 		data := f.getArgs()
-		err := json.Unmarshal([]byte(msg.Args), &data)
+		args := strings.Trim(msg.Args, "[,],\n")
+		argsString, err := strconv.Unquote(args)
 		if err != nil {
+			log.Printf(err.Error())
+			return
+		}
+		err = json.Unmarshal([]byte(argsString), &data)
+		if err != nil {
+			log.Printf(err.Error())
 			return
 		}
 
@@ -117,8 +128,14 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 		if f.ArgsPresent {
 			//data type should be defined for unmarshall
 			data := f.getArgs()
-			err := json.Unmarshal([]byte(msg.Args), &data)
+			argsString, err := strconv.Unquote(string(msg.Args))
 			if err != nil {
+				log.Printf(err.Error())
+				return
+			}
+			err = json.Unmarshal([]byte(argsString), &data)
+			if err != nil {
+				log.Printf(err.Error())
 				return
 			}
 
@@ -131,16 +148,19 @@ func (m *methods) processIncomingMessage(c *Channel, msg *protocol.Message) {
 			Type:  protocol.MessageTypeAckResponse,
 			AckId: msg.AckId,
 		}
-		msg, err := json.Marshal(result[0].Interface())
+		message, err := json.Marshal(result[0].Interface())
 		if err != nil {
+			log.Printf(err.Error())
 			return
 		}
-		send(ack, c, string(msg))
+		send(ack, c, string(message))
 
 	case protocol.MessageTypeAckResponse:
 		waiter, err := c.ack.getWaiter(msg.AckId)
 		if err == nil {
 			waiter <- msg.Args
+		} else {
+			log.Printf(err.Error())
 		}
 	}
 }
